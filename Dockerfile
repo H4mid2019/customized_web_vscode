@@ -89,6 +89,14 @@ RUN go install golang.org/x/tools/gopls@latest && \
 # Switch to coder user
 USER coder
 
+# Create shell configuration to ensure PATH is set in interactive shells
+RUN echo 'export GOROOT=/usr/local/go' >> ~/.bashrc && \
+    echo 'export GOPATH=/home/coder/go' >> ~/.bashrc && \
+    echo 'export PATH=$GOROOT/bin:$GOPATH/bin:$PATH' >> ~/.bashrc && \
+    echo 'export GOROOT=/usr/local/go' >> ~/.profile && \
+    echo 'export GOPATH=/home/coder/go' >> ~/.profile && \
+    echo 'export PATH=$GOROOT/bin:$GOPATH/bin:$PATH' >> ~/.profile
+
 # Install Python extensions from Open VSX (code-server's default registry)
 RUN code-server --install-extension ms-python.python || true && \
     code-server --install-extension wholroyd.jinja || true && \
