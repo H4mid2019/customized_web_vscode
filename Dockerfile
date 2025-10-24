@@ -70,9 +70,12 @@ RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel && \
     numpy
 
 # Install Go (architecture-aware)
-RUN ARCH=$(dpkg --print-architecture) && \
-    if [ "$ARCH" = "arm64" ]; then GO_ARCH="arm64"; elif [ "$ARCH" = "amd64" ]; then GO_ARCH="amd64"; else GO_ARCH="$ARCH"; fi && \
-    echo "Detected architecture: $ARCH, downloading Go for: $GO_ARCH" && \
+RUN case "${TARGETARCH}" in \
+    "arm64") GO_ARCH="arm64" ;; \
+    "amd64") GO_ARCH="amd64" ;; \
+    *) GO_ARCH="${TARGETARCH}" ;; \
+    esac && \
+    echo "Building for platform: ${TARGETPLATFORM}, architecture: ${TARGETARCH}, downloading Go for: ${GO_ARCH}" && \
     wget -O go.tar.gz https://go.dev/dl/go1.25.1.linux-${GO_ARCH}.tar.gz && \
     tar -C /usr/local -xzf go.tar.gz && \
     rm go.tar.gz
@@ -105,8 +108,10 @@ RUN echo 'export GOROOT=/usr/local/go' >> ~/.bashrc && \
     echo 'export PATH=$GOROOT/bin:$GOPATH/bin:$PATH' >> ~/.profile
 
 # Configure VS Code settings (architecture-aware)
-RUN ARCH=$(dpkg --print-architecture) && \
-    if [ "$ARCH" = "arm64" ]; then INTELLISENSE_MODE="linux-gcc-arm64"; else INTELLISENSE_MODE="linux-gcc-x64"; fi && \
+RUN case "${TARGETARCH}" in \
+    "arm64") INTELLISENSE_MODE="linux-gcc-arm64" ;; \
+    *) INTELLISENSE_MODE="linux-gcc-x64" ;; \
+    esac && \
     mkdir -p /home/coder/.local/share/code-server/User && \
     echo "{\n\
     \"workbench.colorTheme\": \"Default Dark Modern\",\n\
