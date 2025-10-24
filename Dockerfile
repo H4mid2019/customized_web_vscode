@@ -1,5 +1,9 @@
 FROM codercom/code-server:latest
 
+# Build arguments for architecture
+ARG TARGETARCH
+ARG TARGETPLATFORM
+
 USER root
 
 # Install all development packages in a single layer
@@ -65,8 +69,11 @@ RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel && \
     requests \
     numpy
 
-# Install Go 1.25.1 for ARM64 (latest stable as of October 2025)
-RUN wget -O go.tar.gz https://go.dev/dl/go1.25.1.linux-arm64.tar.gz && \
+# Install Go (architecture-aware)
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "arm64" ]; then GO_ARCH="arm64"; elif [ "$ARCH" = "amd64" ]; then GO_ARCH="amd64"; else GO_ARCH="$ARCH"; fi && \
+    echo "Detected architecture: $ARCH, downloading Go for: $GO_ARCH" && \
+    wget -O go.tar.gz https://go.dev/dl/go1.25.1.linux-${GO_ARCH}.tar.gz && \
     tar -C /usr/local -xzf go.tar.gz && \
     rm go.tar.gz
 
@@ -97,35 +104,37 @@ RUN echo 'export GOROOT=/usr/local/go' >> ~/.bashrc && \
     echo 'export GOPATH=/home/coder/go' >> ~/.profile && \
     echo 'export PATH=$GOROOT/bin:$GOPATH/bin:$PATH' >> ~/.profile
 
-# Configure VS Code settings
-RUN mkdir -p /home/coder/.local/share/code-server/User && \
-    echo '{\n\
-    "workbench.colorTheme": "Default Dark Modern",\n\
-    "workbench.iconTheme": "vs-seti",\n\
-    "editor.fontSize": 16,\n\
-    "editor.fontFamily": "Consolas, \"Courier New\", monospace",\n\
-    "editor.tabSize": 4,\n\
-    "editor.insertSpaces": true,\n\
-    "editor.wordWrap": "on",\n\
-    "editor.minimap.enabled": true,\n\
-    "editor.formatOnSave": false,\n\
-    "editor.renderWhitespace": "selection",\n\
-    "editor.bracketPairColorization.enabled": true,\n\
-    "editor.guides.bracketPairs": true,\n\
-    "files.autoSave": "afterDelay",\n\
-    "files.autoSaveDelay": 1000,\n\
-    "terminal.integrated.fontSize": 16,\n\
-    "terminal.integrated.fontFamily": "monospace",\n\
-    "go.useLanguageServer": true,\n\
-    "go.toolsManagement.autoUpdate": true,\n\
-    "python.defaultInterpreterPath": "/usr/local/bin/python3.14",\n\
-    "python.linting.enabled": true,\n\
-    "python.linting.pylintEnabled": true,\n\
-    "python.formatting.provider": "black",\n\
-    "C_Cpp.default.cStandard": "c17",\n\
-    "C_Cpp.default.cppStandard": "c++17",\n\
-    "C_Cpp.default.intelliSenseMode": "linux-gcc-arm64"\n\
-}' > /home/coder/.local/share/code-server/User/settings.json
+# Configure VS Code settings (architecture-aware)
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "arm64" ]; then INTELLISENSE_MODE="linux-gcc-arm64"; else INTELLISENSE_MODE="linux-gcc-x64"; fi && \
+    mkdir -p /home/coder/.local/share/code-server/User && \
+    echo "{\n\
+    \"workbench.colorTheme\": \"Default Dark Modern\",\n\
+    \"workbench.iconTheme\": \"vs-seti\",\n\
+    \"editor.fontSize\": 16,\n\
+    \"editor.fontFamily\": \"Consolas, \\\"Courier New\\\", monospace\",\n\
+    \"editor.tabSize\": 4,\n\
+    \"editor.insertSpaces\": true,\n\
+    \"editor.wordWrap\": \"on\",\n\
+    \"editor.minimap.enabled\": true,\n\
+    \"editor.formatOnSave\": false,\n\
+    \"editor.renderWhitespace\": \"selection\",\n\
+    \"editor.bracketPairColorization.enabled\": true,\n\
+    \"editor.guides.bracketPairs\": true,\n\
+    \"files.autoSave\": \"afterDelay\",\n\
+    \"files.autoSaveDelay\": 1000,\n\
+    \"terminal.integrated.fontSize\": 16,\n\
+    \"terminal.integrated.fontFamily\": \"monospace\",\n\
+    \"go.useLanguageServer\": true,\n\
+    \"go.toolsManagement.autoUpdate\": true,\n\
+    \"python.defaultInterpreterPath\": \"/usr/local/bin/python3.14\",\n\
+    \"python.linting.enabled\": true,\n\
+    \"python.linting.pylintEnabled\": true,\n\
+    \"python.formatting.provider\": \"black\",\n\
+    \"C_Cpp.default.cStandard\": \"c17\",\n\
+    \"C_Cpp.default.cppStandard\": \"c++17\",\n\
+    \"C_Cpp.default.intelliSenseMode\": \"${INTELLISENSE_MODE}\"\n\
+}" > /home/coder/.local/share/code-server/User/settings.json
 
 # Install Python extensions from Open VSX (code-server's default registry)
 RUN code-server --install-extension ms-python.python || true && \
