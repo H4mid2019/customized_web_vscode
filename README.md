@@ -49,24 +49,68 @@ Code-server uses the Open VSX registry. The following extensions are pre-install
 
 The Dockerfile automatically detects the system architecture (ARM64 or AMD64) and downloads the appropriate binaries.
 
+### Default build
+
+Uses Go 1.25.1 and Python 3.14.0:
+
 ```bash
 docker build -t my-code-server .
+```
+
+### Custom versions
+
+Build with different versions using build arguments:
+
+```bash
+docker build \
+  --build-arg GO_VERSION=1.24.0 \
+  --build-arg PYTHON_VERSION=3.13.0 \
+  -t my-code-server .
 ```
 
 Build time: 15-30 minutes due to compiling Python from source.
 
 ## Running the Container
 
-### Basic Usage
+### Using Pre-built Image from Docker Hub
+
+Pull the latest image from Docker Hub:
+
 ```bash
-docker run -it --name vscode \
+docker pull h4mid2019/custom_web_vscode:latest
+```
+
+Run the container:
+
+```bash
+docker run -d --name vscode \
   -p 8080:8080 \
   -v "${PWD}:/home/coder/project" \
   -e PASSWORD=yourpassword \
-  custom-vscode:latest
+  h4mid2019/custom_web_vscode:latest
 ```
 
-Then access code-server at: `http://localhost:8080`
+Docker Hub: https://hub.docker.com/r/h4mid2019/custom_web_vscode
+
+### Building Locally
+
+Build from Dockerfile:
+
+```bash
+docker build -t my-code-server .
+```
+
+Run your local build:
+
+```bash
+docker run -d --name vscode \
+  -p 8080:8080 \
+  -v "${PWD}:/home/coder/project" \
+  -e PASSWORD=yourpassword \
+  my-code-server
+```
+
+Access code-server at: http://localhost:8080
 
 ### With Persistent Extensions and Settings
 ```bash
@@ -167,17 +211,24 @@ Tested on: Ubuntu ARM64, Ubuntu AMD64
 
 ## Technical Details
 
-| Component | Version |
-|-----------|---------|
-| Go | 1.25.1 |
-| Python | 3.14.0 |
-| Base Image | code-server:latest |
+| Component | Default Version | Customizable |
+|-----------|-----------------|--------------|
+| Go | 1.25.1 | Yes (--build-arg GO_VERSION) |
+| Python | 3.14.0 | Yes (--build-arg PYTHON_VERSION) |
+| Base Image | code-server:latest | No |
+
+### Build Arguments
+
+- `GO_VERSION`: Go version to install (default: 1.25.1)
+- `PYTHON_VERSION`: Python version to compile (default: 3.14.0)
+- `TARGETARCH`: Automatically set by Docker for multi-platform builds
 
 ### Build Notes
 
 - Python compiled without PGO optimizations for faster builds
 - Go tools installed: gopls, dlv, staticcheck, goimports
 - Extensions from Open VSX registry only
+- Architecture detection automatic via TARGETARCH
 
 ## License
 

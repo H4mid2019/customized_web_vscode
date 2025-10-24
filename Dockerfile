@@ -4,6 +4,10 @@ FROM codercom/code-server:latest
 ARG TARGETARCH
 ARG TARGETPLATFORM
 
+# Version arguments with defaults
+ARG GO_VERSION=1.25.1
+ARG PYTHON_VERSION=3.14.0
+
 USER root
 
 # Install all development packages in a single layer
@@ -41,21 +45,22 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python 3.14.0 from source
-# Note: --enable-optimizations disabled for ARM64 to avoid build timeouts and OOM errors
+# Install Python from source
+# Note: --enable-optimizations disabled to avoid build timeouts and OOM errors
 # Profile-guided optimization (PGO) is very resource-intensive on ARM architecture
-RUN wget https://www.python.org/ftp/python/3.14.0/Python-3.14.0.tar.xz && \
-    tar -xf Python-3.14.0.tar.xz && \
-    cd Python-3.14.0 && \
+RUN wget https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz && \
+    tar -xf Python-${PYTHON_VERSION}.tar.xz && \
+    cd Python-${PYTHON_VERSION} && \
     ./configure && \
     make -j$(nproc) altinstall && \
     cd .. && \
-    rm -rf Python-3.14.0 Python-3.14.0.tar.xz && \
+    rm -rf Python-${PYTHON_VERSION} Python-${PYTHON_VERSION}.tar.xz && \
     # Create symlinks for easier access
-    ln -s /usr/local/bin/python3.14 /usr/local/bin/python3 && \
-    ln -s /usr/local/bin/python3.14 /usr/local/bin/python && \
-    ln -s /usr/local/bin/pip3.14 /usr/local/bin/pip3 && \
-    ln -s /usr/local/bin/pip3.14 /usr/local/bin/pip
+    PYTHON_MAJOR_MINOR=$(echo ${PYTHON_VERSION} | cut -d. -f1,2) && \
+    ln -sf /usr/local/bin/python${PYTHON_MAJOR_MINOR} /usr/local/bin/python3 && \
+    ln -sf /usr/local/bin/python${PYTHON_MAJOR_MINOR} /usr/local/bin/python && \
+    ln -sf /usr/local/bin/pip${PYTHON_MAJOR_MINOR} /usr/local/bin/pip3 && \
+    ln -sf /usr/local/bin/pip${PYTHON_MAJOR_MINOR} /usr/local/bin/pip
 
 # Upgrade pip and install common Python packages
 RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel && \
@@ -75,8 +80,9 @@ RUN case "${TARGETARCH}" in \
     "amd64") GO_ARCH="amd64" ;; \
     *) GO_ARCH="${TARGETARCH}" ;; \
     esac && \
-    echo "Building for platform: ${TARGETPLATFORM}, architecture: ${TARGETARCH}, downloading Go for: ${GO_ARCH}" && \
-    wget -O go.tar.gz https://go.dev/dl/go1.25.1.linux-${GO_ARCH}.tar.gz && \
+    echo "Building for platform: ${TARGETPLATFORM}, architecture: ${TARGETARCH}" && \
+    echo "Downloading Go ${GO_VERSION} for: ${GO_ARCH}" && \
+    wget -O go.tar.gz https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz && \
     tar -C /usr/local -xzf go.tar.gz && \
     rm go.tar.gz
 
@@ -112,6 +118,7 @@ RUN case "${TARGETARCH}" in \
     "arm64") INTELLISENSE_MODE="linux-gcc-arm64" ;; \
     *) INTELLISENSE_MODE="linux-gcc-x64" ;; \
     esac && \
+    PYTHON_MAJOR_MINOR=$(echo ${PYTHON_VERSION} | cut -d. -f1,2) && \
     mkdir -p /home/coder/.local/share/code-server/User && \
     echo "{\n\
     \"workbench.colorTheme\": \"Default Dark Modern\",\n\
@@ -132,7 +139,7 @@ RUN case "${TARGETARCH}" in \
     \"terminal.integrated.fontFamily\": \"monospace\",\n\
     \"go.useLanguageServer\": true,\n\
     \"go.toolsManagement.autoUpdate\": true,\n\
-    \"python.defaultInterpreterPath\": \"/usr/local/bin/python3.14\",\n\
+    \"python.defaultInterpreterPath\": \"/usr/local/bin/python${PYTHON_MAJOR_MINOR}\",\n\
     \"python.linting.enabled\": true,\n\
     \"python.linting.pylintEnabled\": true,\n\
     \"python.formatting.provider\": \"black\",\n\
